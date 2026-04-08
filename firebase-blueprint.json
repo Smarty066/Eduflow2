@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the EduFlow platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "rep", "student"] },
+        "status": { "type": "string", "enum": ["active", "pending", "removed"] },
+        "classroomId": { "type": "string", "description": "The ID of the classroom the user belongs to (for students and reps)." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "fullName", "email", "role"]
+    },
+    "Classroom": {
+      "title": "Classroom",
+      "description": "A virtual classroom created by an admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "adminId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "department": { "type": "string" },
+        "studentInviteToken": { "type": "string" },
+        "repInviteToken": { "type": "string" },
+        "subscriptionStatus": { "type": "string", "enum": ["active", "expired"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "adminId"]
+    },
+    "Handout": {
+      "title": "Handout",
+      "description": "A digital handout uploaded to a classroom.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "classroomId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["processing", "published"] },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "classroomId", "title", "fileUrl"]
+    },
+    "HandoutPage": {
+      "title": "Handout Page",
+      "description": "A single page of a handout with extracted text.",
+      "type": "object",
+      "properties": {
+        "handoutId": { "type": "string" },
+        "pageNumber": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["handoutId", "pageNumber", "imageUrl"]
+    },
+    "LiveClass": {
+      "title": "Live Class",
+      "description": "A scheduled live teaching session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "classroomId": { "type": "string" },
+        "title": { "type": "string" },
+        "meetingUrl": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "live", "ended"] }
+      },
+      "required": ["id", "classroomId", "title", "meetingUrl", "startTime"]
+    },
+    "ReadingProgress": {
+      "title": "Reading Progress",
+      "description": "User's progress in a specific handout.",
+      "type": "object",
+      "properties": {
+        "lastPage": { "type": "number" },
+        "totalWeight": { "type": "number" },
+        "progressPercentage": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["lastPage", "progressPercentage"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles." },
+    "/users/{uid}/progress/{handoutId}": { "schema": "ReadingProgress", "description": "Reading progress for a user." },
+    "/classrooms/{classroomId}": { "schema": "Classroom", "description": "Classroom details." },
+    "/classrooms/{classroomId}/handouts/{handoutId}": { "schema": "Handout", "description": "Handouts in a classroom." },
+    "/classrooms/{classroomId}/handouts/{handoutId}/pages/{pageId}": { "schema": "HandoutPage", "description": "Pages of a handout." },
+    "/classrooms/{classroomId}/live_classes/{classId}": { "schema": "LiveClass", "description": "Live classes for a classroom." }
+  }
+}

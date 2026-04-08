@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - fullName: string (required, 1-100 chars)
+    //   - email: string (required, email format)
+    //   - role: string (required, ['admin', 'rep', 'student'])
+    //   - status: string (required, ['active', 'pending', 'removed'])
+    //   - classroomId: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: classrooms
+    // Document ID: {classroomId}
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, 1-100 chars)
+    //   - adminId: string (required, matches creator uid)
+    //   - schoolName: string (optional)
+    //   - department: string (optional)
+    //   - studentInviteToken: string (required)
+    //   - repInviteToken: string (required)
+    //   - subscriptionStatus: string (required, ['active', 'expired'])
+    //   - createdAt: timestamp (required)
+    //
+    // [Other collections follow similar patterns]
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "faruqabiola629@gmail.com");
+    }
+
+    function isDeveloper() {
+      return isAuthenticated() && request.auth.token.email == "faruqabiola629@gmail.com";
+    }
+
+    function isMemberOfClassroom(classroomId) {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classroomId == classroomId ||
+        get(/databases/$(database)/documents/classrooms/$(classroomId)).data.adminId == request.auth.uid ||
+        isDeveloper()
+      );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'fullName', 'email', 'role', 'status', 'createdAt']) &&
+             data.uid is string &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'rep', 'student'] &&
+             data.status in ['active', 'pending', 'removed'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidClassroom(data) {
+      return data.keys().hasAll(['id', 'name', 'adminId', 'studentInviteToken', 'repInviteToken', 'subscriptionStatus', 'createdAt']) &&
+             data.id is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.adminId == request.auth.uid &&
+             data.subscriptionStatus in ['active', 'expired'] &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(uid) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(uid) || isAdmin()) &&
+                    (isDeveloper() || request.resource.data.role == resource.data.role); // Developers can change roles if needed, others can't
+
+      match /progress/{handoutId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /classrooms/{classroomId} {
+      allow read: if isMemberOfClassroom(classroomId);
+      allow create: if isAuthenticated() && (isAdmin() || request.resource.data.adminId == request.auth.uid) && isValidClassroom(request.resource.data);
+      allow update: if isAdmin() && resource.data.adminId == request.auth.uid && isValidClassroom(request.resource.data);
+      
+      match /handouts/{handoutId} {
+        allow read: if isMemberOfClassroom(classroomId);
+        allow write: if isAdmin() && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.adminId == request.auth.uid;
+        
+        match /pages/{pageId} {
+          allow read: if isMemberOfClassroom(classroomId);
+          allow write: if isAdmin() && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.adminId == request.auth.uid;
+        }
+      }
+
+      match /live_classes/{classId} {
+        allow read: if isMemberOfClassroom(classroomId);
+        allow write: if isAdmin() && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.adminId == request.auth.uid;
+      }
+    }
+  }
+}
