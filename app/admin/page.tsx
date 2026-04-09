@@ -26,6 +26,7 @@ import { signOut } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import UploadHandoutModal from '@/components/UploadHandoutModal';
+import AIImageGenerator from '@/components/AIImageGenerator';
 
 export default function AdminDashboard() {
   const { user, userData, loading } = useAuth();
@@ -147,6 +148,7 @@ export default function AdminDashboard() {
             { id: 'handouts', icon: FileText, label: 'Handouts' },
             { id: 'students', icon: Users, label: 'Students & Reps' },
             { id: 'live', icon: Video, label: 'Live Classes' },
+            { id: 'ai', icon: Sparkles, label: 'AI Tools' },
             { id: 'settings', icon: Settings, label: 'Settings' },
             { id: 'profile', icon: Users, label: 'Profile' },
             ...(isDeveloper ? [{ id: 'developer', icon: ShieldCheck, label: 'Developer' }] : []),
@@ -414,6 +416,12 @@ export default function AdminDashboard() {
               <p className="text-slate-400 font-medium">No live classes scheduled yet.</p>
               <p className="text-slate-400 text-xs mt-1">Schedule a session to start teaching in real-time.</p>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'ai' && (
+          <div className="space-y-8">
+            <AIImageGenerator />
           </div>
         )}
 

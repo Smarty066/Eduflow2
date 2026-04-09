@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
-import { generateSummary } from '@/lib/gemini';
+import { generateSummary, generateAudio } from '@/lib/gemini';
+import ChatBot from '@/components/ChatBot';
 
 export default function HandoutReader() {
   const { id } = useParams();
@@ -39,19 +40,46 @@ export default function HandoutReader() {
   const [activeTab, setActiveTab] = useState('preview'); // preview, read, scan, audio, summary
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isProgressLoaded, setIsProgressLoaded] = useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
+    if (audioUrl && isPlaying) {
+      audioRef.current?.play();
+    } else {
+      audioRef.current?.pause();
     }
-  }, [user, authLoading, router]);
+  }, [isPlaying, audioUrl]);
+
+  const handlePlayAudio = async () => {
+    if (audioUrl) {
+      setIsPlaying(!isPlaying);
+      return;
+    }
+
+    if (!pages[currentPage]?.text) return;
+
+    setIsGeneratingAudio(true);
+    try {
+      const url = await generateAudio(pages[currentPage].text);
+      setAudioUrl(url);
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Audio generation error:", error);
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
 
   useEffect(() => {
-    // Reset zoom when page changes
+    // Reset audio when page changes
+    setAudioUrl(null);
+    setIsPlaying(false);
     setZoomLevel(1);
   }, [currentPage]);
 
@@ -340,21 +368,31 @@ export default function HandoutReader() {
                   <div className="flex items-center justify-center gap-6 mb-10">
                     <button className="p-4 text-slate-400 hover:text-indigo-600 transition-all"><ChevronLeft className="w-8 h-8" /></button>
                     <button 
-                      onClick={() => setIsPlaying(!isPlaying)}
-                      className="w-20 h-20 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-indigo-200 hover:scale-105 transition-all"
+                      onClick={handlePlayAudio}
+                      disabled={isGeneratingAudio}
+                      className="w-20 h-20 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-indigo-200 hover:scale-105 transition-all disabled:opacity-50"
                     >
-                      {isPlaying ? <Pause className="w-10 h-10" /> : <Play className="w-10 h-10 ml-1" />}
+                      {isGeneratingAudio ? (
+                        <Loader2 className="w-10 h-10 animate-spin" />
+                      ) : isPlaying ? (
+                        <Pause className="w-10 h-10" />
+                      ) : (
+                        <Play className="w-10 h-10 ml-1" />
+                      )}
                     </button>
                     <button className="p-4 text-slate-400 hover:text-indigo-600 transition-all"><ChevronRight className="w-8 h-8" /></button>
                   </div>
 
+                  {audioUrl && <audio ref={audioRef} src={audioUrl} onEnded={() => setIsPlaying(false)} />}
+
                   <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                     <motion.div 
                       className="bg-indigo-600 h-full" 
-                      animate={{ width: isPlaying ? '100%' : '30%' }}
+                      animate={{ width: isPlaying ? '100%' : '0%' }}
                       transition={{ duration: 30, ease: "linear" }}
                     />
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-6 font-bold uppercase tracking-widest">Powered by Gemini TTS</p>
                 </div>
               </motion.div>
             )}
